@@ -11,8 +11,8 @@ YACC_FILE = yc5508.hwchecker.y
 
 all: $(TARGET)
 
-$(TARGET): lex.yy.c yc5508.hwchecker.tab.c main.c
-	$(CC) $(CFLAGS) lex.yy.c yc5508.hwchecker.tab.c main.c -o $(TARGET)
+$(TARGET): lex.yy.c yc5508.hwchecker.tab.c
+	$(CC) $(CFLAGS) lex.yy.c yc5508.hwchecker.tab.c -o $(TARGET)
 
 lex.yy.c: $(LEX_FILE)
 	$(FLEX) $(LEX_FILE)

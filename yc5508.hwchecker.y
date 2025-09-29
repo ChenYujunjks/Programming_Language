@@ -3,87 +3,104 @@
 #include <stdlib.h>
 
 int yylex(void);
-void yyerror(const char *s);
+void yyerror(const char* s);
 
-int expected_line = 1;   
+static long long expected_line = 1;
+static int had_divzero = 0;
 %}
 
-%output "yc5508.hwchecker.tab.c"
-%defines "yc5508.hwchecker.tab.h"
+%union {
+    long long ival;
+}
 
+%token <ival> NUM
+%token VARIABLE
 
-%token NUMBER
-%token EQ LT GT
-%token PLUS MINUS TIMES DIV
-%token LPAREN RPAREN
-%token COLON
-
-%left LT GT EQ
-%left PLUS MINUS
-%left TIMES DIV
-%left UMINUS
+%type <ival> stmt eq_stmt ineq_stmt expr term factor
 
 %%
 
-input:
+input
+  : 
   | input line
   ;
 
-line:
-    NUMBER COLON comparison '\n' {
-     
+line
+  : NUM ':' stmt '\n'
+    {
         if ($1 != expected_line) {
-            fprintf(stderr, "Error: Line numbering out of sequence (expected %d:, got %d:)\n", expected_line, $1);
-            exit(1);  
+            yyerror("syntax error");
         }
+        if (!had_divzero) {
+            printf("%lld: %s\n", $1, ($3 ? "Yes" : "No"));
+        }
+        had_divzero = 0;
         expected_line++;
-
-        if ($3 == -99999) {
-
-        } else if ($3) {
-            printf("%d: Yes\n", $1);
-        } else {
-            printf("%d: No\n", $1);
-        }
     }
   ;
 
-comparison:
-    expr EQ expr {
-        $$ = ($1 == $3);
-    }
-  | expr LT expr {
-        $$ = ($1 < $3);
-    }
-  | expr GT expr {
-        $$ = ($1 > $3);
-    }
-  | expr { 
-        
-        $$ = $1 != 0;
-    }
+stmt
+  : eq_stmt
+  | ineq_stmt
   ;
 
-expr:
-    expr PLUS expr   { $$ = $1 + $3; }
-  | expr MINUS expr  { $$ = $1 - $3; }
-  | expr TIMES expr  { $$ = $1 * $3; }
-  | expr DIV expr    { 
-        if ($3 == 0) {
-            printf("Error: Division by Zero\n");
-            $$ = -99999;  
+eq_stmt
+  : expr '=' expr
+    { $$ = ($1 == $3); }
+  ;
+
+ineq_stmt
+  : expr '<' expr          { $$ = ($1 < $3); }
+  | expr '>' expr          { $$ = ($1 > $3); }
+  | ineq_stmt '<' expr     { $$ = ($1 < $3); }
+  | ineq_stmt '>' expr     { $$ = ($1 > $3); }
+  ;
+
+expr
+  : expr '+' term          { $$ = $1 + $3; }
+  | expr '-' term          { $$ = $1 - $3; }
+  | term
+  ;
+
+term
+  : term '*' factor        { $$ = $1 * $3; }
+  | term '/' factor
+    {
+        long long a = $1, b = $3;
+        if (b == 0) {
+            if (!had_divzero) {
+                fprintf(stdout, "Error: Division by Zero\n");
+                fflush(stdout);
+                had_divzero = 1;
+            }
+            $$ = 0;
         } else {
-            $$ = $1 / $3;  
+            long long q = a / b;
+            long long r = a % b;
+            if (r != 0 && ((a < 0) ^ (b < 0))) {
+                q -= 1;
+            }
+            $$ = q;
         }
     }
-  | LPAREN expr RPAREN { $$ = $2; }
-  | MINUS expr %prec UMINUS { $$ = -$2; }
-  | NUMBER { $$ = $1; }
+  | factor
+  ;
+
+factor
+  : '(' expr ')'           { $$ = $2; }
+  | '-' factor             { $$ = -$2; }
+  | '+' factor             { $$ =  $2; }
+  | NUM                    { $$ = $1; }
   ;
 
 %%
 
-void yyerror(const char *s) {
-    fprintf(stderr, "Error: syntax error\n");
-    exit(1); 
+void yyerror(const char* s) {
+    (void)s;
+    fprintf(stdout, "Error: syntax error\n");
+    exit(1);
+}
+
+int main(void) {
+    return yyparse();
 }

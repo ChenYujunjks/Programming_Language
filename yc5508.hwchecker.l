@@ -1,24 +1,26 @@
+%option noyywrap
+
 %{
+#include <stdlib.h>
 #include "yc5508.hwchecker.tab.h"
 %}
 
-%%
-
-[0-9]+      { yylval = atoi(yytext); return NUMBER; }
-":"         { return COLON; }
-"="         { return EQ; }
-"<"         { return LT; }
-">"         { return GT; }
-"+"         { return PLUS; }
-"-"         { return MINUS; }
-"*"         { return TIMES; }
-"/"         { return DIV; }
-"("         { return LPAREN; }
-")"         { return RPAREN; }
-\n          { return '\n'; }
-[ \t]       ;   /* ignore space and tab */
-.           { return yytext[0]; }  /* Other symbols */
+DIGIT   [0-9]+
 
 %%
-
-int yywrap(void) { return 1; }
+[ \t\r]+           ;
+\n                 return '\n';
+":"                return ':';
+"("                return '(';
+")"                return ')';
+"+"                return '+';
+"-"                return '-';
+"*"                return '*';
+"/"                return '/';
+"<"                return '<';
+">"                return '>';
+"="                return '=';
+{DIGIT}            { yylval.ival = atoll(yytext); return NUM; }
+[A-Za-z_][A-Za-z_0-9]*   { return VARIABLE; }
+.                  { return yytext[0]; }
+%%
